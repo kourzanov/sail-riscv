@@ -9,12 +9,6 @@
 /* ****************************************************************** */
 /* This file specifies the instructions in the base integer set.      */
 
-enum clause extension = Ext_C
-function clause extensionEnabled(Ext_C) = misa[C] == 0b1
-
-enum clause extension = Ext_Zca
-function clause extensionEnabled(Ext_Zca) = extensionEnabled(Ext_C)
-
 /* ****************************************************************** */
 union clause ast = UTYPE : (bits(20), regidx, uop)
 
@@ -307,18 +301,6 @@ mapping clause encdec = LOAD(imm, rs1, rd, is_unsigned, size, false, false) if (
 
 val extend_value : forall 'n, 0 < 'n <= xlen. (bool, bits('n)) -> xlenbits
 function extend_value(is_unsigned, value) = if is_unsigned then zero_extend(value) else sign_extend(value)
-
-function is_aligned(vaddr : xlenbits, width : word_width) -> bool =
-  match width {
-    BYTE   => true,
-    HALF   => vaddr[0..0] == zeros(),
-    WORD   => vaddr[1..0] == zeros(),
-    DOUBLE => vaddr[2..0] == zeros(),
-  }
-
-// Return true if the address is misaligned and we don't support misaligned access.
-function check_misaligned(vaddr : xlenbits, width : word_width) -> bool =
-  not(plat_enable_misaligned_access()) & not(is_aligned(vaddr, width))
 
 function clause execute(LOAD(imm, rs1, rd, is_unsigned, width, aq, rl)) = {
   let offset : xlenbits = sign_extend(imm);

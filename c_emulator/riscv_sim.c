@@ -12,6 +12,10 @@
 #include <sys/socket.h>
 #include <netinet/ip.h>
 #include <fcntl.h>
+#include <math.h>
+#include <dlfcn.h>
+#include <dirent.h>
+#include <dirent.h>
 
 #include "elf.h"
 #include "sail.h"
@@ -22,6 +26,16 @@
 #include "riscv_platform.h"
 #include "riscv_platform_impl.h"
 #include "riscv_sail.h"
+
+#ifdef NOT_DYNAMIC
+#include "riscv_model_RV64-mext.H"
+#include "riscv_model_RV64-bext.H"
+#include "riscv_model_RV64-kext.H"
+#include "riscv_model_RV64-vext.H"
+#include "riscv_model_RV64-pext.H"
+#endif
+
+enum zRetired { zRETIRE_SUCCESS, zRETIRE_FAIL };
 
 #ifdef ENABLE_SPIKE
 #include "tv_spike_intf.h"
@@ -94,6 +108,79 @@ bool config_print_platform = true;
 bool config_print_rvfi = false;
 bool config_print_step = false;
 
+#include "riscv_ext.h"
+
+struct cycle_stats{
+	uint64_t min;
+	uint64_t max;
+	double avg;
+	double stddev;
+}c_stats;
+
+#define DEFINE_AST(X) struct X##ast X##ast;
+#define GET_AST(X) X##ast
+
+#ifdef NOT_DYNAMIC
+struct mast mast;
+struct bast bast;
+struct kast kast;
+struct vast vast;
+struct past past;
+#endif
+
+#ifdef DYNAMIC
+typedef struct extension_node{
+    char ext_char;
+    char *lib_path;
+    void *handle;
+    void *ast;
+
+    void (*init)(void);
+    void (*decode)(void *ast, uint32_t zw);
+    void (*print)(sail_string *s,void *ast);
+    enum zRetired (*execute)(void *ast);
+    void (*create_ast)(void *ast);
+    size_t (*get_ast_size)(void);
+    bool (*is_legal)(void *ast);
+    struct extension_node *next;
+} extension_node;
+
+static extension_node *extension_list = NULL;
+static char *enabled_extensions = NULL;
+static char *library_path = NULL;
+static extension_node *extensions = NULL;
+static size_t num_extensions = 0;
+#endif
+
+typedef struct {
+    bool spike_done;
+    bool stepped;
+    bool diverged;
+    mach_int step_no;
+    int insn_cnt;
+#ifdef RVFI_DII
+    bool need_instr;
+#endif
+    struct timeval interval_start;
+} sail_loop_state;
+
+const sail_loop_state zstate = {
+  .diverged = false,
+  .step_no = 0,
+  .insn_cnt = 0,
+#ifdef RVFI_DII
+  .need_instr = true,
+#endif
+};
+
+uint64_t entry;
+uint64_t rdtsc()
+{
+    uint32_t lo,hi;
+    __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
+    return (((uint64_t)hi << 32) | (uint64_t)lo);
+}
+
 void set_config_print(char *var, bool val)
 {
   if (var == NULL || strcmp("all", var) == 0) {
@@ -144,6 +231,7 @@ static struct option options[] = {
     {"report-arch",                 no_argument,       0, 'a'                     },
     {"test-signature",              required_argument, 0, 'T'                     },
     {"signature-granularity",       required_argument, 0, 'g'                     },
+    {"add-extention",               required_argument, 0, 'D'                     },
 #ifdef RVFI_DII
     {"rvfi-dii",                    required_argument, 0, 'r'                     },
 #endif
@@ -253,6 +341,211 @@ static int ilog2(uint64_t x)
   return -1;
 }
 
+#ifdef NOT_DYNAMIC
+void ext_model_init(void){
+  mext_init();
+  bext_init();
+  pext_init();
+  kext_init();
+  vext_init();
+}
+
+void decode_insn(uint32_t zw) {
+  CREATE(mast)(&mast);
+  CREATE(bast)(&bast);
+  CREATE(kast)(&kast);
+  CREATE(vast)(&vast);
+  CREATE(past)(&past);
+
+  mext_decode(&mast, zw);
+  if(mast.kind != Kind_mILLEGAL && mast.kind != Kind_mC_ILLEGAL) {
+       printf("HANDLING by MEXT!!\n");
+  }
+  bext_decode(&bast, zw);
+  if(bast.kind != Kind_bILLEGAL && bast.kind != Kind_bC_ILLEGAL) {
+       printf("HANDLING by BEXT!!\n");
+  }
+  kext_decode(&kast, zw);
+  if(kast.kind != Kind_kILLEGAL && kast.kind != Kind_kC_ILLEGAL) {
+       printf("HANDLING by KEXT!!\n");
+  }
+  vext_decode(&vast, zw);
+  if(vast.kind != Kind_vILLEGAL && vast.kind != Kind_vC_ILLEGAL) {
+       printf("HANDLING by VEXT!!\n");
+  }
+  pext_decode(&past, zw);
+  if(past.kind != Kind_pILLEGAL && past.kind != Kind_pC_ILLEGAL) {
+       printf("HANDLING by PEXT!!\n");
+  }
+}
+
+bool print_insn(sail_string *s) {
+  if(mast.kind != Kind_mILLEGAL && mast.kind != Kind_mC_ILLEGAL)
+       mprint_insn(s, mast);
+  else if(bast.kind != Kind_bILLEGAL && bast.kind != Kind_bC_ILLEGAL)
+       bprint_insn(s, bast);
+  else if(kast.kind != Kind_kILLEGAL && kast.kind != Kind_kC_ILLEGAL)
+       kprint_insn(s, kast);
+  else if(vast.kind != Kind_vILLEGAL && vast.kind != Kind_vC_ILLEGAL)
+       vprint_insn(s, vast);
+  else if(past.kind != Kind_pILLEGAL && past.kind != Kind_pC_ILLEGAL)
+       pprint_insn(s, past);
+  else return false;
+  return true;
+}
+
+bool execute_insn(enum zRetired* zgaz36352) {
+  if(mast.kind != Kind_mILLEGAL && mast.kind != Kind_mC_ILLEGAL)
+       *zgaz36352 = mexecute(mast);
+  else if(bast.kind != Kind_bILLEGAL && bast.kind != Kind_bC_ILLEGAL)
+       *zgaz36352 = bexecute(bast);
+  else if(kast.kind != Kind_kILLEGAL && kast.kind != Kind_kC_ILLEGAL)
+       *zgaz36352 = kexecute(kast);
+  else if(vast.kind != Kind_vILLEGAL && vast.kind != Kind_vC_ILLEGAL)
+       *zgaz36352 = vexecute(vast);
+  else if(past.kind != Kind_pILLEGAL && past.kind != Kind_pC_ILLEGAL)
+       *zgaz36352 = pexecute(past);
+  else return false;
+  return true;
+}
+#endif
+
+#ifdef DYNAMIC
+static void parse_library_path(const char *path) {
+  if (path && *path) {
+    library_path = strdup(path);
+    printf("File path: %s\n", library_path);
+    if (!library_path) {
+      perror("Empty library path!");
+    }
+  } else {
+      fprintf(stderr, "No file path provided!\n");
+  }
+}
+
+static void parse_extensions(const char *ext_str) { 
+  if (ext_str && *ext_str) {
+      enabled_extensions = strdup(ext_str);
+      printf("Parse extension: %s\n", enabled_extensions);
+      if (!enabled_extensions) {
+        fprintf(stderr, "Empty extensions!\n");
+      }
+  } else {
+      fprintf(stderr, "No extensions provided!\n");
+  }
+}
+
+static void load_extension(char ext) {
+  char lib_name[256];
+  snprintf(lib_name, sizeof(lib_name), "riscv_model_RV64-%cext.so", ext);
+  fprintf(stderr,"Lib to load: riscv_model_RV64-%cext.so\n", ext);
+
+  char full_path[512];
+  snprintf(full_path, sizeof(full_path), "%s/%s", library_path, lib_name);
+
+  void *handle = dlopen(full_path, RTLD_LAZY);
+  if (!handle) {
+      fprintf(stderr, "Failed to load library for extension: '%c': %s\n", ext, dlerror());
+      return;
+  }
+
+  extension_node *ext_entry = malloc(sizeof(extension_node));
+  memset(ext_entry, 0, sizeof(extension_node));
+  ext_entry->ext_char = ext;
+  ext_entry->lib_path = strdup(full_path);
+  ext_entry->handle = handle;
+
+  char symbol[64];
+
+  snprintf(symbol, sizeof(symbol), "%cast_get_size", ext);
+  ext_entry->get_ast_size = dlsym(handle, symbol);
+
+  ext_entry->ast = malloc(ext_entry->get_ast_size());
+
+  snprintf(symbol, sizeof(symbol), "create_%cast", ext);
+  ext_entry->create_ast = dlsym(handle, symbol);
+
+  snprintf(symbol, sizeof(symbol), "%cast_is_legal", ext);
+  ext_entry->is_legal = dlsym(handle, symbol);
+
+  snprintf(symbol, sizeof(symbol), "%cext_init", ext);
+  ext_entry->init = dlsym(handle, symbol);
+
+  snprintf(symbol, sizeof(symbol), "%cext_decode", ext);
+  ext_entry->decode = dlsym(handle, symbol);
+
+  snprintf(symbol, sizeof(symbol), "%cast_apply_print", ext);
+  ext_entry->print = dlsym(handle, symbol);
+
+  snprintf(symbol, sizeof(symbol), "%cast_apply_execute", ext);
+  ext_entry->execute = dlsym(handle, symbol);
+
+  ext_entry->next = extension_list;
+  extension_list = ext_entry;
+}
+
+static void load_all_extensions() {
+  if (!enabled_extensions || !library_path) return;
+
+  DIR *dir = opendir(library_path);
+  if (!dir) {
+    perror("Failed to open library directory!");
+    return;
+  }
+
+  for (char *c = enabled_extensions; *c; c++) {
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+      if (strstr(entry->d_name, "riscv_model_RV64-") &&
+          strchr(entry->d_name, *c)) {
+        load_extension(*c);
+        break;
+      }
+    }
+    rewinddir(dir);
+  }
+  closedir(dir);
+}
+
+void ext_model_init(void) {
+  for (extension_node *e = extension_list; e; e = e->next) {
+    if(e->init && e->create_ast) {
+      e->init();
+      fprintf(stderr, "Initialized extension '%c'\n", e->ext_char);
+    }
+  }
+}
+
+void decode_insn(uint32_t zw) {
+  for (extension_node *e = extension_list; e; e = e->next) {
+    if (e->decode) {
+      e->create_ast(e->ast);
+      e->decode(e->ast, zw);
+    }
+  }
+}
+
+bool print_insn(sail_string *s) {
+  for (extension_node *e = extension_list; e; e = e->next) {
+    if (e->print && e->is_legal(e->ast)) {
+      e->print(s,e->ast);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool execute_insn(enum zRetired *status) {
+  for (extension_node *e = extension_list; e; e = e->next) {
+    if (e->execute && e->is_legal(e->ast)) {
+      *status=e->execute(e->ast);
+      return true;
+    }
+  }
+  return false;
+}
+#endif
+
 /**
  * Parses the command line arguments and returns the argv index for the first
  * ELF file that should be loaded. As getopt transforms the argv array, all
@@ -296,6 +589,10 @@ static int process_args(int argc, char **argv)
                     "V::"
                     "v::"
                     "l:"
+#ifdef DYNAMIC
+                    "D:"
+		    "L:"
+#endif
                     "x",
                     options, NULL);
     if (c == -1)
@@ -396,6 +693,14 @@ static int process_args(int argc, char **argv)
     case 'h':
       print_usage(argv[0], 0);
       break;
+#ifdef DYNAMIC
+    case 'D':
+      parse_extensions(optarg);
+      break;
+    case 'L':
+      parse_library_path(optarg);
+      break;
+#endif
 #ifdef RVFI_DII
     case 'r':
       rvfi_dii = true;
@@ -477,7 +782,11 @@ static int process_args(int argc, char **argv)
   if (!rvfi_dii)
 #endif
     fprintf(stdout, "Running file %s.\n", argv[optind]);
-  return optind;
+
+#ifdef DYNAMIC
+      load_all_extensions();
+#endif
+      return optind;
 }
 
 void check_elf(bool is32bit)
@@ -897,133 +1206,135 @@ void rvfi_send_trace(unsigned version)
 }
 
 #endif
-
-void run_sail(void)
+static bool zmain_loop(sail_loop_state *state, uint64_t *cycle_counter, uint64_t itns)
 {
-  bool spike_done;
   bool stepped;
-  bool diverged = false;
+  uint64_t start_cycles = 0;
+  uint64_t end_cycles = 0;
+  bool _config_print_instr = config_print_instr;
+  bool _config_print_mem_access = config_print_mem_access;
+  bool _config_print_reg = config_print_reg;
+  bool _config_print_platform = config_print_platform;
+  bool _config_print_rvfi = config_print_rvfi;
 
-  /* initialize the step number */
-  mach_int step_no = 0;
-  int insn_cnt = 0;
+  for(int i = 0; i < itns; ++i) {
+    uint64_t cycles = 0;
+
+    while (!zhtif_done && (insn_limit == 0 || total_insns < insn_limit)) {
+
 #ifdef RVFI_DII
-  bool need_instr = true;
-#endif
-
-  struct timeval interval_start;
-  if (gettimeofday(&interval_start, NULL) < 0) {
-    fprintf(stderr, "Cannot gettimeofday: %s\n", strerror(errno));
-    exit(1);
-  }
-
-  while (!zhtif_done && (insn_limit == 0 || total_insns < insn_limit)) {
-#ifdef RVFI_DII
-    if (rvfi_dii) {
-      mach_bits instr_bits;
-      if (config_print_rvfi) {
-        fprintf(stderr, "Waiting for cmd packet... ");
-      }
-      int res = read(rvfi_dii_sock, &instr_bits, sizeof(instr_bits));
-      if (config_print_rvfi) {
-        fprintf(stderr, "Read cmd packet: %016jx\n", (intmax_t)instr_bits);
-        zprint_instr_packet(instr_bits);
-      }
-      if (res == 0) {
+      if (rvfi_dii) {
+        mach_bits instr_bits;
         if (config_print_rvfi) {
-          fprintf(stderr, "Got EOF, exiting... ");
+          fprintf(stderr, "Waiting for cmd packet... ");
         }
-        rvfi_dii = false;
-        return;
-      }
-      if (res == -1) {
-        fprintf(stderr, "Reading RVFI DII command failed: %s", strerror(errno));
-        exit(1);
-      }
-      if (res < sizeof(instr_bits)) {
-        fprintf(stderr, "Reading RVFI DII command failed: insufficient input");
-        exit(1);
-      }
-      zrvfi_set_instr_packet(instr_bits);
-      zrvfi_zzero_exec_packet(UNIT);
-      mach_bits cmd = zrvfi_get_cmd(UNIT);
-      switch (cmd) {
-      case 0: { /* EndOfTrace */
+        int res = read(rvfi_dii_sock, &instr_bits, sizeof(instr_bits));
         if (config_print_rvfi) {
-          fprintf(stderr, "Got EndOfTrace packet.\n");
+          fprintf(stderr, "Read cmd packet: %016jx\n", (intmax_t)instr_bits);
+          zprint_instr_packet(instr_bits);
         }
-        mach_bits insn = zrvfi_get_insn(UNIT);
-        if (insn == (('V' << 24) | ('E' << 16) | ('R' << 8) | 'S')) {
-          /*
-           * Reset with insn set to 'VERS' is a version negotiation request
-           * and not a actual reset request. Respond with a message say that
-           * we support version 2.
-           */
+        if (res == 0) {
           if (config_print_rvfi) {
-            fprintf(stderr,
-                    "EndOfTrace was actually a version negotiation packet.\n");
+            fprintf(stderr, "Got EOF, exiting... ");
           }
-          get_and_send_rvfi_packet(&zrvfi_get_v2_support_packet);
-          continue;
-        } else {
-          zrvfi_halt_exec_packet(UNIT);
-          rvfi_send_trace(rvfi_trace_version);
+          rvfi_dii = false;
           return;
-        }
-      }
-      case 1: /* Instruction */
-        break;
-      case 'v': { /* Set wire format version */
-        mach_bits insn = zrvfi_get_insn(UNIT);
-        if (config_print_rvfi) {
-          fprintf(stderr, "Got request for v%jd trace format!\n",
-                  (intmax_t)insn);
-        }
-        if (insn == 1) {
-          fprintf(stderr, "Requested trace in legacy format!\n");
-        } else if (insn == 2) {
-          fprintf(stderr, "Requested trace in v2 format!\n");
-        } else {
-          fprintf(stderr, "Requested trace in unsupported format %jd!\n",
-                  (intmax_t)insn);
+        } if (res == -1) {
+          fprintf(stderr, "Reading RVFI DII command failed: %s", strerror(errno));
+          exit(1);
+        } if (res < sizeof(instr_bits)) {
+          fprintf(stderr, "Reading RVFI DII command failed: insufficient input");
           exit(1);
         }
-        rvfi_trace_version
-            = insn; // From now on send traces in the requested format
-        struct {
-          char msg[8];
-          uint64_t version;
-        } version_response = {"version=", rvfi_trace_version};
-        if (write(rvfi_dii_sock, &version_response, sizeof(version_response))
-            != sizeof(version_response)) {
-          fprintf(stderr, "Sending version response failed: %s\n",
-                  strerror(errno));
-          exit(1);
+        zrvfi_set_instr_packet(instr_bits);
+        zrvfi_zzero_exec_packet(UNIT);
+        mach_bits cmd = zrvfi_get_cmd(UNIT);
+        switch (cmd) {
+        case 0: { /* EndOfTrace */
+          if (config_print_rvfi) {
+            fprintf(stderr, "Got EndOfTrace packet.\n");
+          }
+          mach_bits insn = zrvfi_get_insn(UNIT);
+          if (insn == (('V' << 24) | ('E' << 16) | ('R' << 8) | 'S')) {
+            /*
+             * Reset with insn set to 'VERS' is a version negotiation request
+             * and not a actual reset request. Respond with a message say that
+             * we support version 2.
+             */
+            if (config_print_rvfi) {
+              fprintf(stderr,
+                      "EndOfTrace was actually a version negotiation packet.\n");
+            }
+            get_and_send_rvfi_packet(&zrvfi_get_v2_support_packet);
+            continue;
+          } else {
+            zrvfi_halt_exec_packet(UNIT);
+            rvfi_send_trace(rvfi_trace_version);
+            return;
+          }
         }
-        continue;
-      }
-      default:
-        fprintf(stderr, "Unknown RVFI-DII command: %#02x\n", (int)cmd);
-        exit(1);
-      }
-      sail_int sail_step;
-      CREATE(sail_int)(&sail_step);
-      CONVERT_OF(sail_int, mach_int)(&sail_step, step_no);
-      stepped = zstep(sail_step);
-      if (have_exception)
-        goto step_exception;
-      flush_logs();
-      KILL(sail_int)(&sail_step);
-      rvfi_send_trace(rvfi_trace_version);
-    } else /* if (!rvfi_dii) */
+        case 1: /* Instruction */
+          break;
+        case 'v': { /* Set wire format version */
+          mach_bits insn = zrvfi_get_insn(UNIT);
+            if (config_print_rvfi) {
+              fprintf(stderr, "Got request for v%jd trace format!\n",
+                      (intmax_t)insn);
+            }
+            if (insn == 1) {
+              fprintf(stderr, "Requested trace in legacy format!\n");
+            } else if (insn == 2) {
+              fprintf(stderr, "Requested trace in v2 format!\n");
+            } else {
+              fprintf(stderr, "Requested trace in unsupported format %jd!\n",
+                      (intmax_t)insn);
+              exit(1);
+            }
+            rvfi_trace_version
+                = insn; // From now on send traces in the requested format
+            struct {
+              char msg[8];
+              uint64_t version;
+            } version_response = {"version=", rvfi_trace_version};
+            if (write(rvfi_dii_sock, &version_response, sizeof(version_response))
+                != sizeof(version_response)) {
+              fprintf(stderr, "Sending version response failed: %s\n",
+                      strerror(errno));
+              exit(1);
+            }
+            continue;
+          }
+       default:
+            fprintf(stderr, "Unknown RVFI-DII command: %#02x\n", (int)cmd);
+            exit(1);
+          }
+          sail_int sail_step;
+          CREATE(sail_int)(&sail_step);
+          CONVERT_OF(sail_int, mach_int)(&sail_step, state->step_no);
+          stepped = zstep(sail_step);
+          if (have_exception) {
+            KILL(sail_int)(&sail_step);
+            return true;
+          }
+          flush_logs();
+          KILL(sail_int)(&sail_step);
+          rvfi_send_trace(rvfi_trace_version);
+          } else /* if (!rvfi_dii) */
 #endif
     { /* run a Sail step */
       sail_int sail_step;
       CREATE(sail_int)(&sail_step);
-      CONVERT_OF(sail_int, mach_int)(&sail_step, step_no);
+      CONVERT_OF(sail_int, mach_int)(&sail_step, state->step_no);
+
+      start_cycles = rdtsc();
       stepped = zstep(sail_step);
-      if (have_exception)
-        goto step_exception;
+      end_cycles = rdtsc();
+      cycles += (end_cycles - start_cycles);
+
+      if (have_exception) {
+        KILL(sail_int)(&sail_step);
+        return true;
+      }
       flush_logs();
       KILL(sail_int)(&sail_step);
     }
@@ -1031,20 +1342,20 @@ void run_sail(void)
       if (config_print_step) {
         fprintf(trace_log, "\n");
       }
-      step_no++;
-      insn_cnt++;
+      state->step_no++;
+      state->insn_cnt++;
       total_insns++;
-    }
 
+    }
     if (do_show_times && (total_insns & 0xfffff) == 0) {
-      uint64_t start_us = 1000000 * ((uint64_t)interval_start.tv_sec)
-          + ((uint64_t)interval_start.tv_usec);
-      if (gettimeofday(&interval_start, NULL) < 0) {
+      uint64_t start_us = 1000000 * ((uint64_t)state->interval_start.tv_sec)
+          + ((uint64_t)state->interval_start.tv_usec);
+      if (gettimeofday(&(state->interval_start), NULL) < 0) {
         fprintf(stderr, "Cannot gettimeofday: %s\n", strerror(errno));
         exit(1);
       }
-      uint64_t end_us = 1000000 * ((uint64_t)interval_start.tv_sec)
-          + ((uint64_t)interval_start.tv_usec);
+      uint64_t end_us = 1000000 * ((uint64_t)state->interval_start.tv_sec)
+          + ((uint64_t)state->interval_start.tv_usec);
       fprintf(stdout, "kips: %" PRIu64 "\n",
               ((uint64_t)1000) * 0x100000 / (end_us - start_us));
     }
@@ -1055,49 +1366,135 @@ void run_sail(void)
       flush_logs();
     }
 
-    if (zhtif_done) {
-      if (!spike_done) {
-        fprintf(stdout, "Sail done (exit-code %" PRIi64 "), but not Spike!\n",
-                zhtif_exit_code);
-        exit(1);
+      if (zhtif_done) {
+        if (!spike_done) {
+          fprintf(stdout, "Sail done (exit-code %" PRIi64 "), but not Spike!\n",
+                  zhtif_exit_code);
+          exit(1);
+        }
+      } else {
+        if (spike_done) {
+          fprintf(stdout, "Spike done, but not Sail!\n");
+          exit(1);
+        }
       }
-    } else {
-      if (spike_done) {
-        fprintf(stdout, "Spike done, but not Sail!\n");
-        exit(1);
+      if (!compare_states(s)) {
+        diverged = true;
+        break;
       }
-    }
-    if (!compare_states(s)) {
-      diverged = true;
-      break;
-    }
 #endif
-    if (zhtif_done) {
-      /* check exit code */
-      if (zhtif_exit_code == 0)
-        fprintf(stdout, "SUCCESS\n");
-      else
-        fprintf(stdout, "FAILURE: %" PRIi64 "\n", zhtif_exit_code);
+      if (zhtif_done) {
+        /* check exit code */
+        if (zhtif_exit_code == 0)
+          fprintf(stdout, "SUCCESS\n");
+        else
+          fprintf(stdout, "FAILURE: %" PRIi64 "\n", zhtif_exit_code);
+      }
+ 
+      if (state->insn_cnt == rv_insns_per_tick) {
+        state->insn_cnt = 0;
+        ztick_clock(UNIT);
+        ztick_platform(UNIT);
+
+        tick_spike();
+      }
     }
 
-    if (insn_cnt == rv_insns_per_tick) {
-      insn_cnt = 0;
-      ztick_clock(UNIT);
-      ztick_platform(UNIT);
+    config_print_instr = false;
+    config_print_mem_access = false;
+    config_print_reg = false;
+    config_print_platform = false;
+    config_print_rvfi = false;
 
-      tick_spike();
+    init_sail(entry);
+
+    memcpy(state,&zstate,sizeof(state));
+    zhtif_done=false;
+    cycle_counter[i] += cycles;
+    fprintf(stdout, "Iteration %i: %lu\n",i,cycle_counter[i]);
+    if (i>0) c_stats.avg += cycle_counter[i];
+  }
+  config_print_instr = _config_print_instr;
+  config_print_mem_access = _config_print_mem_access;
+  config_print_reg = _config_print_reg;
+  config_print_platform = _config_print_platform;
+  config_print_rvfi = _config_print_rvfi;
+  return state->stepped;
+}
+
+/* For collecting all the statistics.
+ */
+struct cycle_stats stats(uint64_t *cycle_counter, uint64_t itns){
+    uint64_t min = UINT64_MAX;
+    uint64_t max = 0;
+    double avg = (c_stats.avg / (itns-1));
+    double sum_sq = 0.0;
+
+    for (size_t i = 1; i < itns; ++i) {
+        if (cycle_counter[i] < min) min = cycle_counter[i];
+        if (cycle_counter[i] > max) max = cycle_counter[i];
+        sum_sq += (cycle_counter[i] - avg) * (cycle_counter[i] - avg);
     }
+
+    double stddev = sqrt(sum_sq / (itns-1));
+
+    struct cycle_stats stats = {
+        .min = min,
+        .max = max,
+        .avg = avg,
+        .stddev = stddev
+    };
+    return stats;
+}
+
+
+void run_sail(void)
+{
+  /* initialize the step number */
+  const uint64_t itns = 101;
+  uint64_t cycle_count = 0;
+  uint64_t *cycle_counter = malloc(itns * sizeof(uint64_t)+1);
+  memset(cycle_counter,0,itns * sizeof(uint64_t)+1);
+    if (!cycle_counter) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+  sail_loop_state state;
+  memcpy(&state,&zstate,sizeof(state));
+
+  struct timeval interval_start;
+  if (gettimeofday(&interval_start, NULL) < 0) {
+    fprintf(stderr, "Cannot gettimeofday: %s\n", strerror(errno));
+    exit(1);
+  }
+  bool exception_occurred = zmain_loop(&state, cycle_counter, itns);
+  if (exception_occurred) {
+        fprintf(stderr, "Sail exception!");
+        goto dump_state;
   }
 
 dump_state:
-  if (diverged) {
+  if (state.diverged) {
     /* TODO */
   }
-  finish(diverged);
+  for(int i = 0; i < itns; ++i)
+  {
+	  fprintf(stdout,"total cycles in [%d] iteration: %lld\n",i, cycle_counter[i]);
 
+  }
+  if (itns>1) {
+            struct cycle_stats stat = stats(cycle_counter, itns);
+
+            printf("\nzmain execution statistics (%zu iterations):\n", itns);
+            printf("  min: %-12" PRIu64 " cycles\n", stat.min);
+            printf("  max: %-12" PRIu64 " cycles\n", stat.max);
+            printf("  avg: %-12.2f cycles\n", stat.avg);
+            printf("  stddev: %-12.2f cycles\n", stat.stddev);
+  } 
+  free(cycle_counter);
+  finish(state.diverged);
 step_exception:
-  fprintf(stderr, "Sail exception!");
-  goto dump_state;
+  return;
 }
 
 void init_logs()
@@ -1137,10 +1534,11 @@ void init_logs()
 
 int main(int argc, char **argv)
 {
+  int files_start = process_args(argc, argv);
+ 
   // Initialize model so that we can check or report its architecture.
   preinit_sail();
 
-  int files_start = process_args(argc, argv);
   char *initial_elf_file = argv[files_start];
   init_logs();
 
@@ -1148,7 +1546,6 @@ int main(int argc, char **argv)
     fprintf(stderr, "Cannot gettimeofday: %s\n", strerror(errno));
     exit(1);
   }
-
 #ifdef RVFI_DII
   uint64_t entry;
   if (rvfi_dii) {
@@ -1209,7 +1606,7 @@ int main(int argc, char **argv)
   } else
     entry = load_sail(initial_elf_file, /*main_file=*/true);
 #else
-  uint64_t entry = load_sail(initial_elf_file, /*main_file=*/true);
+  entry = load_sail(initial_elf_file, /*main_file=*/true);
 #endif
   /* Load any additional ELF files into memory */
   for (int i = files_start + 1; i < argc; i++) {
@@ -1225,8 +1622,7 @@ int main(int argc, char **argv)
 
   if (!init_check(s))
     finish(1);
-
-  if (gettimeofday(&init_end, NULL) < 0) {
+ if (gettimeofday(&init_end, NULL) < 0) {
     fprintf(stderr, "Cannot gettimeofday: %s\n", strerror(errno));
     exit(1);
   }

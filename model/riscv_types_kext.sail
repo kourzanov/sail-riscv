@@ -358,3 +358,7 @@ function aes_mixcolumns_inv(x) = {
   let oc3 : bits(32) = aes_mixcolumn_inv(aes_get_column(x, 3));
   (oc3 @ oc2 @ oc1 @ oc0) /* Return value */
 }
+val ror32 : (bits(32),nat) -> bits(32)
+function ror32(x,n) = (x >> n) | (x << 32 - n)
+val ror64 : (bits(64),nat) -> bits(64)
+function ror64(x,n) = (x >> n) | (x << 64 - n)

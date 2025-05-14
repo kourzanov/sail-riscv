@@ -21,43 +21,73 @@ SAIL_VLEN := riscv_vlen.sail
 
 # Instruction sources, depending on target
 SAIL_CHECK_SRCS = riscv_addr_checks_common.sail riscv_addr_checks.sail riscv_misa_ext.sail
-SAIL_DEFAULT_INST = riscv_insts_base.sail riscv_insts_zifencei.sail riscv_insts_aext.sail riscv_insts_zca.sail riscv_insts_mext.sail riscv_insts_zicsr.sail riscv_insts_hints.sail
+SAIL_EXTS_INST = riscv_insts_common.sail
+SAIL_MEXT_INST = $(SAIL_EXTS_INST) riscv_insts_mext.sail #riscv_insts_zcb.sail
+SAIL_BEXT_INST = $(SAIL_EXTS_INST) riscv_insts_zba.sail
+SAIL_BEXT_INST += riscv_insts_zbb.sail
+SAIL_BEXT_INST += riscv_insts_zbc.sail
+SAIL_BEXT_INST += riscv_insts_zbs.sail
+SAIL_KEXT_INST = $(SAIL_EXTS_INST) riscv_insts_zkn.sail riscv_insts_zks.sail
+SAIL_KEXT_INST += riscv_insts_zbkb.sail
+SAIL_KEXT_INST += riscv_insts_zbkx.sail
+SAIL_ZVKN_INST = $(SAIL_EXTS_INST) riscv_insts_vext_utils.sail riscv_insts_crypto_rvv_alu.sail
+SAIL_VEXT_INST = $(SAIL_EXTS_INST)
+SAIL_VEXT_INST += riscv_insts_vext_utils.sail
+SAIL_VEXT_INST += riscv_insts_vext_fp_utils.sail
+SAIL_VEXT_INST += riscv_insts_vext_vset.sail
+SAIL_VEXT_INST += riscv_insts_vext_arith.sail
+SAIL_VEXT_INST += riscv_insts_vext_fp.sail
+SAIL_VEXT_INST += riscv_insts_vext_mem.sail
+SAIL_VEXT_INST += riscv_insts_vext_mask.sail
+SAIL_VEXT_INST += riscv_insts_vext_vm.sail
+SAIL_VEXT_INST += riscv_insts_vext_fp_vm.sail
+SAIL_VEXT_INST += riscv_insts_vext_red.sail
+SAIL_VEXT_INST += riscv_insts_vext_fp_red.sail
+SAIL_PEXT_INST = $(SAIL_EXTS_INST) riscv_insts_pext_prelude.sail riscv_insts_pext_ov.sail riscv_insts_pext_add.sail riscv_insts_pext_sub.sail riscv_insts_pext_cr.sail riscv_insts_pext_mul.sail riscv_insts_pext_shift.sail riscv_insts_pext_misc.sail riscv_insts_pext_unpack.sail riscv_insts_pext_pack.sail riscv_insts_pext_msb_add_mul.sail riscv_insts_pext_kmda.sail riscv_insts_pext_muladdsub.sail riscv_insts_pext_32_mul_64_add.sail riscv_insts_pext_q15.sail riscv_insts_pext_q31_sat.sail riscv_insts_pext_32_compute.sail riscv_insts_pext_compare.sail
+ifeq ($(ARCH),RV64)
+SAIL_PEXT_INST += riscv_insts_pext_misc32.sail riscv_insts_pext_muladdsub32.sail riscv_insts_pext_pack32.sail riscv_insts_pext_shift32.sail riscv_insts_pext_q15_64.sail
+SAIL_PEXT_INST += riscv_insts_pext_tmp_function_64.sail
+else
+SAIL_PEXT_INST += riscv_insts_pext_tmp_function_32.sail
+endif
+
+SAIL_DEFAULT_INST = $(SAIL_EXTS_INST) riscv_insts_base.sail riscv_insts_zifencei.sail riscv_insts_aext.sail riscv_insts_zca.sail riscv_insts_zicsr.sail riscv_insts_hints.sail
 SAIL_DEFAULT_INST += riscv_insts_fext.sail riscv_insts_zcf.sail
 SAIL_DEFAULT_INST += riscv_insts_dext.sail riscv_insts_zcd.sail
 
 SAIL_DEFAULT_INST += riscv_insts_svinval.sail
 
-SAIL_DEFAULT_INST += riscv_insts_zba.sail
-SAIL_DEFAULT_INST += riscv_insts_zbb.sail
-SAIL_DEFAULT_INST += riscv_insts_zbc.sail
-SAIL_DEFAULT_INST += riscv_insts_zbs.sail
+#SAIL_DEFAULT_INST += riscv_insts_zba.sail
+#SAIL_DEFAULT_INST += riscv_insts_zbb.sail
+#SAIL_DEFAULT_INST += riscv_insts_zbc.sail
+#SAIL_DEFAULT_INST += riscv_insts_zbs.sail
 
-SAIL_DEFAULT_INST += riscv_insts_zcb.sail
+#SAIL_DEFAULT_INST += riscv_insts_mext.sail
+#SAIL_DEFAULT_INST += riscv_insts_zcb.sail
 
 SAIL_DEFAULT_INST += riscv_insts_zfh.sail
 # Zfa needs to be added after fext, dext and Zfh (as it needs
 # definitions from those)
 SAIL_DEFAULT_INST += riscv_insts_zfa.sail
 
-SAIL_DEFAULT_INST += riscv_insts_zkn.sail
-SAIL_DEFAULT_INST += riscv_insts_zks.sail
-
-SAIL_DEFAULT_INST += riscv_insts_zbkb.sail
-SAIL_DEFAULT_INST += riscv_insts_zbkx.sail
+#SAIL_DEFAULT_INST += riscv_insts_zkn.sail
+#SAIL_DEFAULT_INST += riscv_insts_zks.sail
+#SAIL_DEFAULT_INST += riscv_insts_zbkb.sail
+#SAIL_DEFAULT_INST += riscv_insts_zbkx.sail
 
 SAIL_DEFAULT_INST += riscv_insts_zicond.sail
 
-SAIL_DEFAULT_INST += riscv_insts_vext_utils.sail
-SAIL_DEFAULT_INST += riscv_insts_vext_fp_utils.sail
-SAIL_DEFAULT_INST += riscv_insts_vext_vset.sail
-SAIL_DEFAULT_INST += riscv_insts_vext_arith.sail
-SAIL_DEFAULT_INST += riscv_insts_vext_fp.sail
-SAIL_DEFAULT_INST += riscv_insts_vext_mem.sail
-SAIL_DEFAULT_INST += riscv_insts_vext_mask.sail
-SAIL_DEFAULT_INST += riscv_insts_vext_vm.sail
-SAIL_DEFAULT_INST += riscv_insts_vext_fp_vm.sail
-SAIL_DEFAULT_INST += riscv_insts_vext_red.sail
-SAIL_DEFAULT_INST += riscv_insts_vext_fp_red.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_utils.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_fp_utils.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_vset.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_arith.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_fp.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_mem.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_mask.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_vm.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_fp_vm.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_red.sail
+#SAIL_DEFAULT_INST += riscv_insts_vext_fp_red.sail
 SAIL_DEFAULT_INST += riscv_insts_zicbom.sail
 SAIL_DEFAULT_INST += riscv_insts_zicboz.sail
 
@@ -67,6 +97,12 @@ SAIL_RMEM_INST = $(SAIL_DEFAULT_INST) riscv_jalr_rmem.sail riscv_insts_rmem.sail
 # TODO: riscv_csr_end.sail here temporarily until the scattered definitions
 # are moved from riscv_insts_zicsr.sail to more appropriate places.
 SAIL_SEQ_INST_SRCS  = riscv_insts_begin.sail $(SAIL_SEQ_INST) riscv_insts_end.sail riscv_csr_end.sail
+SAIL_MEXT_INST_SRCS  = riscv_insts_begin.sail $(SAIL_MEXT_INST) riscv_insts_end.sail riscv_csr_end.sail
+SAIL_BEXT_INST_SRCS  = riscv_insts_begin.sail $(SAIL_BEXT_INST) riscv_insts_end.sail riscv_csr_end.sail
+SAIL_KEXT_INST_SRCS  = riscv_insts_begin.sail $(SAIL_KEXT_INST) riscv_insts_end.sail riscv_csr_end.sail
+SAIL_ZVKN_INST_SRCS  = riscv_insts_begin.sail $(SAIL_ZVKN_INST) riscv_insts_end.sail riscv_csr_end.sail
+SAIL_VEXT_INST_SRCS  = riscv_insts_begin.sail $(SAIL_VEXT_INST) riscv_insts_end.sail riscv_csr_end.sail
+SAIL_PEXT_INST_SRCS  = riscv_insts_begin.sail $(SAIL_PEXT_INST) riscv_insts_end.sail riscv_csr_end.sail
 SAIL_RMEM_INST_SRCS = riscv_insts_begin.sail $(SAIL_RMEM_INST) riscv_insts_end.sail riscv_csr_end.sail
 
 # System and platform sources
@@ -115,6 +151,7 @@ SAIL_STEP_SRCS = riscv_step_common.sail riscv_step_ext.sail riscv_decode_ext.sai
 RVFI_STEP_SRCS = riscv_step_common.sail riscv_step_rvfi.sail riscv_decode_ext.sail riscv_fetch_rvfi.sail riscv_step.sail
 
 SAIL_OTHER_SRCS     = $(SAIL_STEP_SRCS)
+SAIL_BASE_SRCS     = riscv_step_common.sail riscv_step_ext.sail riscv_decode_ext.sail riscv_fetch.sail riscv_step.sail
 ifeq ($(ARCH),RV32)
 SAIL_OTHER_COQ_SRCS = riscv_termination_common.sail riscv_termination_rv32.sail
 else
@@ -123,6 +160,12 @@ endif
 
 PRELUDE_SRCS   = $(addprefix model/,$(PRELUDE))
 SAIL_SRCS      = $(addprefix model/,$(SAIL_ARCH_SRCS) $(SAIL_SEQ_INST_SRCS)  $(SAIL_OTHER_SRCS))
+SAIL_MEXT_SRCS = $(addprefix model/,$(SAIL_ARCH_SRCS) $(SAIL_MEXT_INST_SRCS)  $(SAIL_BASE_SRCS))
+SAIL_BEXT_SRCS = $(addprefix model/,$(SAIL_ARCH_SRCS) $(SAIL_BEXT_INST_SRCS)  $(SAIL_BASE_SRCS))
+SAIL_KEXT_SRCS = $(addprefix model/,$(SAIL_ARCH_SRCS) $(SAIL_KEXT_INST_SRCS)  $(SAIL_BASE_SRCS))
+SAIL_ZVKN_SRCS = $(addprefix model/,$(SAIL_ARCH_SRCS) $(SAIL_ZVKN_INST_SRCS)  $(SAIL_BASE_SRCS))
+SAIL_VEXT_SRCS = $(addprefix model/,$(SAIL_ARCH_SRCS) $(SAIL_VEXT_INST_SRCS)  $(SAIL_BASE_SRCS))
+SAIL_PEXT_SRCS = $(addprefix model/,$(SAIL_ARCH_SRCS) $(SAIL_PEXT_INST_SRCS)  $(SAIL_BASE_SRCS))
 SAIL_RMEM_SRCS = $(addprefix model/,$(SAIL_ARCH_SRCS) $(SAIL_RMEM_INST_SRCS) $(SAIL_OTHER_SRCS))
 SAIL_RVFI_SRCS = $(addprefix model/,$(SAIL_ARCH_RVFI_SRCS) $(SAIL_SEQ_INST_SRCS) $(RVFI_STEP_SRCS))
 SAIL_COQ_SRCS  = $(addprefix model/,$(SAIL_ARCH_SRCS) $(SAIL_SEQ_INST_SRCS) $(SAIL_OTHER_COQ_SRCS))
@@ -146,7 +189,7 @@ export LEM_DIR
 C_WARNINGS ?=
 #-Wall -Wextra -Wno-unused-label -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-unused-function
 C_INCS = $(addprefix c_emulator/,riscv_prelude.h riscv_platform_impl.h riscv_platform.h riscv_softfloat.h)
-C_SRCS = $(addprefix c_emulator/,riscv_prelude.c riscv_platform_impl.c riscv_platform.c riscv_softfloat.c riscv_sim.c)
+C_SRCS = $(addprefix c_emulator/,riscv_prelude.c riscv_platform_impl.c riscv_platform.c riscv_softfloat.c)
 
 SOFTFLOAT_DIR    = c_emulator/SoftFloat-3e
 SOFTFLOAT_INCDIR = $(SOFTFLOAT_DIR)/source/include
@@ -161,7 +204,8 @@ GMP_LIBS = $(shell pkg-config --libs gmp || echo -lgmp)
 ZLIB_FLAGS = $(shell pkg-config --cflags zlib)
 ZLIB_LIBS = $(shell pkg-config --libs zlib)
 
-C_FLAGS = -I $(SAIL_LIB_DIR) -I c_emulator $(GMP_FLAGS) $(ZLIB_FLAGS) $(SOFTFLOAT_FLAGS)
+C_FLAGS = -I $(SAIL_LIB_DIR) -I c_emulator $(GMP_FLAGS) $(ZLIB_FLAGS) $(SOFTFLOAT_FLAGS) -I generated_definitions/c/
+C_FLAGS += -lm
 C_LIBS  = $(GMP_LIBS) $(ZLIB_LIBS) $(SOFTFLOAT_LIBS)
 
 # The C simulator can be built to be linked against Spike for tandem-verification.
@@ -181,7 +225,7 @@ ifneq (,$(COVERAGE))
 C_FLAGS += --coverage -O1
 SAIL_FLAGS += -Oconstant_fold
 else
-C_FLAGS += -O3 -flto=auto
+C_FLAGS += -O3 -ftree-vectorize -fomit-frame-pointer -ffast-math -ffinite-math-only -ffp-contract=on -fvisibility=default
 endif
 
 ifneq (,$(SAILCOV))
@@ -209,6 +253,10 @@ check: $(SAIL_SRCS) model/main.sail Makefile
 interpret: $(SAIL_SRCS) model/main.sail
 	$(SAIL) -i $(SAIL_FLAGS) $(SAIL_SRCS) model/main.sail
 
+generated_definitions/sv/riscv_model_$(ARCH).sv: $(SAIL_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/sv
+	$(SAIL) $(SAIL_FLAGS) -sv -sv_output_dir $(dir $@) -o $(basename $(notdir $@)) $(SAIL_SRCS)
+
 sail_doc/riscv_$(ARCH).json: $(SAIL_SRCS) model/main.sail
 	$(SAIL) -doc -doc_bundle riscv_$(ARCH).json -o sail_doc $(SAIL_FLAGS) $(SAIL_DOC_FLAGS) $(SAIL_SRCS) model/main.sail
 
@@ -226,11 +274,71 @@ gcovr:
 
 c_preserve_fns=-c_preserve _set_Misa_C
 
-generated_definitions/c/riscv_model_$(ARCH).c: $(SAIL_SRCS) model/main.sail Makefile
+%.all: %.all.c; x=(`wc -l $<`); y=$$[$${x[0]}-2]; echo $$y; sed -e "1,9d;$$y,\$$d" $< > $@	
+%-mext.C: %-mext.all; ./separate.awk -vPrefix=m -vBody=1 $< > $@
+%-mext.H: %-mext.all; ./separate.awk -vPrefix=m -vHeader=1 $< > $@
+%-bext.C: %-bext.all; ./separate.awk -vPrefix=b -vBody=1 $< > $@
+%-bext.H: %-bext.all; ./separate.awk -vPrefix=b -vHeader=1 $< > $@
+%-kext.C: %-kext.all; ./separate.awk -vPrefix=k -vBody=1 $< > $@
+%-kext.H: %-kext.all; ./separate.awk -vPrefix=k -vHeader=1 $< > $@
+%-vext.C: %-vext.all; ./separate.awk -vPrefix=v -vBody=1 $< > $@
+%-vext.H: %-vext.all; ./separate.awk -vPrefix=v -vHeader=1 $< > $@
+%-pext.C: %-pext.all; ./separate.awk -vPrefix=p -vBody=1 $< > $@
+%-pext.H: %-pext.all; ./separate.awk -vPrefix=p -vHeader=1 $< > $@
+SAIL_MODULES+=c_emulator/riscv_model_$(ARCH)-mext.o
+.PRECIOUS: generated_definitions/c/riscv_model_$(ARCH)-mext.C generated_definitions/c/riscv_model_$(ARCH)-mext.H
+generated_definitions/c/riscv_model_$(ARCH)-mext.all.c: $(SAIL_MEXT_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/c
+	$(SAIL) $(SAIL_FLAGS) $(c_preserve_fns) -O -Oconstant_fold -memo_z3 -c -c_include riscv_prelude.h -c_include riscv_platform.h -c_no_main -static -c-prefix m $(filter %.sail,$^) -o $(basename $@)
+generated_definitions/sv/riscv_model_$(ARCH)-mext.sv: $(SAIL_MEXT_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/sv
+	$(SAIL) $(SAIL_FLAGS) -sv -sv_output_dir $(dir $@) -o $(basename $(notdir $@)) $(filter %.sail,$^)
+SAIL_MODULES+=c_emulator/riscv_model_$(ARCH)-bext.o
+.PRECIOUS: generated_definitions/c/riscv_model_$(ARCH)-bext.C generated_definitions/c/riscv_model_$(ARCH)-bext.H
+generated_definitions/c/riscv_model_$(ARCH)-bext.all.c: $(SAIL_BEXT_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/c
+	$(SAIL) $(SAIL_FLAGS) $(c_preserve_fns) -O -Oconstant_fold -memo_z3 -c -c_include riscv_prelude.h -c_include riscv_platform.h -c_no_main -static -c-prefix b $(filter %.sail,$^) -o $(basename $@)
+generated_definitions/sv/riscv_model_$(ARCH)-bext.sv: $(SAIL_BEXT_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/sv
+	$(SAIL) $(SAIL_FLAGS) -sv -sv_output_dir $(dir $@) -o $(basename $(notdir $@)) $(filter %.sail,$^)
+SAIL_MODULES+=c_emulator/riscv_model_$(ARCH)-kext.o
+.PRECIOUS: generated_definitions/c/riscv_model_$(ARCH)-kext.C generated_definitions/c/riscv_model_$(ARCH)-kext.H
+generated_definitions/c/riscv_model_$(ARCH)-kext.all.c: $(SAIL_KEXT_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/c
+	$(SAIL) $(SAIL_FLAGS) $(c_preserve_fns) -O -Oconstant_fold -memo_z3 -c -c_include riscv_prelude.h -c_include riscv_platform.h -c_no_main -static -c-prefix k $(filter %.sail,$^) -o $(basename $@)
+generated_definitions/sv/riscv_model_$(ARCH)-kext.sv: $(SAIL_KEXT_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/sv
+	$(SAIL) $(SAIL_FLAGS) -sv -sv_output_dir $(dir $@) -o $(basename $(notdir $@)) $(filter %.sail,$^)
+#SAIL_MODULES+=c_emulator/riscv_model_$(ARCH)-zvkn.o
+#.PRECIOUS: generated_definitions/c/riscv_model_$(ARCH)-zvkn.C generated_definitions/c/riscv_model_$(ARCH)-zvkn.H
+generated_definitions/c/riscv_model_$(ARCH)-zvkn.all.c: $(SAIL_ZVKN_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/c
+	$(SAIL) $(SAIL_FLAGS) $(c_preserve_fns) -O -Oconstant_fold -memo_z3 -c -c_include riscv_prelude.h -c_include riscv_platform.h -c_no_main -c-prefix z $(filter %.sail,$^) -o $(basename $@)
+SAIL_MODULES+=c_emulator/riscv_model_$(ARCH)-vext.o
+.PRECIOUS: generated_definitions/c/riscv_model_$(ARCH)-vext.C generated_definitions/c/riscv_model_$(ARCH)-vext.H
+generated_definitions/c/riscv_model_$(ARCH)-vext.all.c: $(SAIL_VEXT_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/c
+	$(SAIL) $(SAIL_FLAGS) $(c_preserve_fns) -O -Oconstant_fold -memo_z3 -c -c_include riscv_prelude.h -c_include riscv_platform.h -c_no_main -static -c-prefix v $(filter %.sail,$^) -o $(basename $@)
+generated_definitions/sv/riscv_model_$(ARCH)-vext.sv: $(SAIL_VEXT_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/sv
+	$(SAIL) $(SAIL_FLAGS) -sv -sv_output_dir $(dir $@) -o $(basename $(notdir $@)) $(filter %.sail,$^)
+SAIL_MODULES+=c_emulator/riscv_model_$(ARCH)-pext.o
+.PRECIOUS: generated_definitions/c/riscv_model_$(ARCH)-pext.C generated_definitions/c/riscv_model_$(ARCH)-pext.H
+generated_definitions/c/riscv_model_$(ARCH)-pext.all.c: $(SAIL_PEXT_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/c
+	$(SAIL) $(SAIL_FLAGS) $(c_preserve_fns) -O -Oconstant_fold -memo_z3 -c -c_include riscv_prelude.h -c_include riscv_platform.h -c_no_main -static -c-prefix p $(filter %.sail,$^) -o $(basename $@)
+generated_definitions/sv/riscv_model_$(ARCH)-pext.sv: $(SAIL_PEXT_SRCS) model/main.sail Makefile
+	mkdir -p generated_definitions/sv
+	$(SAIL) $(SAIL_FLAGS) -sv -sv_output_dir $(dir $@) -o $(basename $(notdir $@)) $(filter %.sail,$^)
+
+%/riscv_model_$(ARCH).c: %/riscv_$(ARCH).c
+	cp $< $@
+	cat $(basename $(notdir $@)).patch | patch -p0
+generated_definitions/c/riscv_$(ARCH).c: $(SAIL_SRCS) model/main.sail Makefile
 	mkdir -p generated_definitions/c
 	$(SAIL) $(SAIL_FLAGS) $(c_preserve_fns) -O -Oconstant_fold -memo_z3 -c -c_include riscv_prelude.h -c_include riscv_platform.h -c_no_main $(SAIL_SRCS) model/main.sail -o $(basename $@)
 
-generated_definitions/c2/riscv_model_$(ARCH).c: $(SAIL_SRCS) model/main.sail Makefile
+generated_definitions/c2/riscv_$(ARCH).c: $(SAIL_SRCS) model/main.sail Makefile
 	mkdir -p generated_definitions/c2
 	$(SAIL) $(SAIL_FLAGS) -no_warn -memo_z3 -config c_emulator/config.json -c2 $(SAIL_SRCS) -o $(basename $@)
 
@@ -243,8 +351,56 @@ csim: c_emulator/riscv_sim_$(ARCH)
 .PHONY: rvfi
 rvfi: c_emulator/riscv_rvfi_$(ARCH)
 
-c_emulator/riscv_sim_$(ARCH): generated_definitions/c/riscv_model_$(ARCH).c $(C_INCS) $(C_SRCS) $(SOFTFLOAT_LIBS) Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) $< $(C_SRCS) $(SAIL_LIB_DIR)/*.c $(C_LIBS) -o $@
+c_emulator/%.o: generated_definitions/c/%.c generated_definitions/c/%.C generated_definitions/c/%.H Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -c $< -o $@
+c_emulator/%.os: generated_definitions/c/%.c generated_definitions/c/%.C generated_definitions/c/%.H Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -flto=auto -c $< -o $@
+c_emulator/%.O: generated_definitions/c/%.c generated_definitions/c/%.C generated_definitions/c/%.H Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC -fPIC -c $< -o $@
+c_emulator/%.O: generated_definitions/c/%.c generated_definitions/c/%.C generated_definitions/c/%.H Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -fPIC -c $< -o $@
+
+c_emulator/%.OS: generated_definitions/c/%.c generated_definitions/c/%.C generated_definitions/c/%.H Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -c $< -o $@
+
+c_emulator/%.o: generated_definitions/c/%.c Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -c $< -o $@
+c_emulator/%.os: generated_definitions/c/%.c Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -flto=auto -c $< -o $@
+
+c_emulator/%.OS: generated_definitions/c/%.c Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -c $< -o $@
+
+c_emulator/%.O: generated_definitions/c/%.c Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC -fPIC -c $< -o $@
+c_emulator/%.O: $(SAIL_LIB_DIR)/%.c Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC -fPIC -c $< -o $@
+c_emulator/%.O: c_emulator/%.c Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC -fPIC -c $< -o $@
+
+c_emulator/%.so: c_emulator/%.O
+	$(LD) -shared --whole-archive --gc-sections -o $@ $^
+
+c_emulator/riscv_model_$(ARCH).so: $(patsubst $(SAIL_LIB_DIR)/%.c,c_emulator/%.O,$(wildcard $(SAIL_LIB_DIR)/*.c))
+c_emulator/riscv_model_$(ARCH).so: $(C_SRCS:.c=.O)
+
+c_emulator/riscv_sim_$(ARCH).static: c_emulator/riscv_model_$(ARCH).o $(C_INCS) $(C_SRCS) c_emulator/riscv_sim.c $(SOFTFLOAT_LIBS) $(SAIL_MODULES) Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC $< $(C_SRCS) c_emulator/riscv_sim.c $(SAIL_LIB_DIR)/*.c $(C_LIBS) $(SAIL_MODULES) -o $@ -lz
+SAIL_LIBS=$(patsubst %.o,%.so,$(SAIL_MODULES))
+.PRECIOUS: $(SAIL_LIBS)
+c_emulator/riscv_sim_$(ARCH).semidyn: c_emulator/riscv_model_$(ARCH).so $(C_INCS) c_emulator/riscv_sim.c $(SOFTFLOAT_LIBS) $(SAIL_LIBS) Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC $< c_emulator/riscv_sim.c $(C_LIBS) $(SAIL_LIBS) -o $@ -lz
+
+c_emulator/riscv_sim_$(ARCH).fulldyn: c_emulator/riscv_model_$(ARCH).so $(C_INCS) c_emulator/riscv_sim.c $(SOFTFLOAT_LIBS) $(SAIL_LIBS) Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC $< c_emulator/riscv_sim.c $(C_LIBS) -o $@ -lz
+SAIL_OBJS=$(patsubst %.o,%.os,$(SAIL_MODULES))
+.PRECIOUS: $(SAIL_OBJS)
+c_emulator/riscv_sim_$(ARCH): c_emulator/riscv_model_$(ARCH).os $(C_INCS) $(C_SRCS) c_emulator/riscv_sim.c $(SOFTFLOAT_LIBS) $(SAIL_OBJS) Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -flto=auto $< $(C_SRCS) c_emulator/riscv_sim.c $(SAIL_LIB_DIR)/*.c $(C_LIBS) $(SAIL_OBJS) -o $@ -lz
+
+SAIL_OBJS_OS=$(patsubst %.o,%.OS,$(SAIL_MODULES))
+c_emulator/riscv_sim_$(ARCH).no_flto: c_emulator/riscv_model_$(ARCH).OS $(C_INCS) $(C_SRCS) c_emulator/riscv_sim.c $(SOFTFLOAT_LIBS) $(SAIL_OBJS_OS) Makefile
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC $< $(C_SRCS) c_emulator/riscv_sim.c $(SAIL_LIB_DIR)/*.c $(C_LIBS) $(SAIL_OBJS_OS) -o $@ -lz
 
 # Note: We have to add -c_preserve since the functions might be optimized out otherwise
 rvfi_preserve_fns=-c_preserve rvfi_set_instr_packet \
@@ -408,7 +564,7 @@ clean:
 	-rm -rf generated_definitions/lem/* generated_definitions/isabelle/* generated_definitions/hol4/* generated_definitions/coq/*
 	-rm -rf generated_definitions/for-rmem/*
 	-$(MAKE) -C $(SOFTFLOAT_LIBDIR) clean
-	-rm -f c_emulator/riscv_sim_RV32 c_emulator/riscv_sim_RV64  c_emulator/riscv_rvfi_RV32 c_emulator/riscv_rvfi_RV64
+	-rm -f c_emulator/riscv_sim_RV32 c_emulator/riscv_sim_RV64 c_emulator/riscv_rvfi_RV32 c_emulator/riscv_rvfi_RV64
 	-rm -f *.gcno *.gcda
 	-rm -f z3_problems
 	-Holmake cleanAll

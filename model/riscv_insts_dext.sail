@@ -33,111 +33,11 @@
 /* S and D value structure (sign, exponent, mantissa)               */
 
 /* TODO: this should be a 'mapping' */
-val      fsplit_D : bits(64) -> (bits(1), bits(11), bits(52))
-function fsplit_D   x64 = (x64[63..63], x64[62..52], x64[51..0])
-
-val      fmake_D  : (bits(1), bits(11), bits(52)) -> bits(64)
-function fmake_D (sign, exp, mant) = sign @ exp @ mant
 
 /* ---- Structure tests */
 
-val      f_is_neg_inf_D : bits(64) -> bool
-function f_is_neg_inf_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (sign == 0b1)
-   & (exp  == ones())
-   & (mant == zeros()))
-}
-
-val      f_is_neg_norm_D : bits(64) -> bool
-function f_is_neg_norm_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (sign == 0b1)
-   & (exp  != zeros())
-   & (exp  != ones()))
-}
-
-val      f_is_neg_subnorm_D : bits(64) -> bool
-function f_is_neg_subnorm_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (sign == 0b1)
-   & (exp  == zeros())
-   & (mant != zeros()))
-}
-
-val      f_is_neg_zero_D : bits(64) -> bool
-function f_is_neg_zero_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (sign == ones())
-   & (exp  == zeros())
-   & (mant == zeros()))
-}
-
-val      f_is_pos_zero_D : bits(64) -> bool
-function f_is_pos_zero_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (sign == zeros())
-   & (exp  == zeros())
-   & (mant == zeros()))
-}
-
-val      f_is_pos_subnorm_D : bits(64) -> bool
-function f_is_pos_subnorm_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (sign == zeros())
-   & (exp  == zeros())
-   & (mant != zeros()))
-}
-
-val      f_is_pos_norm_D : bits(64) -> bool
-function f_is_pos_norm_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (sign == zeros())
-   & (exp  != zeros())
-   & (exp  != ones()))
-}
-
-val      f_is_pos_inf_D : bits(64) -> bool
-function f_is_pos_inf_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (sign == zeros())
-   & (exp  == ones())
-   & (mant == zeros()))
-}
-
-val      f_is_SNaN_D : bits(64) -> bool
-function f_is_SNaN_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (exp == ones())
-   & (mant [51] == bitzero)
-   & (mant != zeros()))
-}
-
-val      f_is_QNaN_D : bits(64) -> bool
-function f_is_QNaN_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (exp == ones())
-   & (mant [51] == bitone))
-}
-
-/* Either QNaN or SNan */
-val      f_is_NaN_D : bits(64) -> bool
-function f_is_NaN_D   x64 = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  (  (exp == ones())
-   & (mant != zeros()))
-}
-
-
 /* **************************************************************** */
 /* Help functions used in the semantic functions                    */
-
-val      negate_D : bits(64) -> bits(64)
-function negate_D (x64) = {
-  let (sign, exp, mant) = fsplit_D (x64);
-  let new_sign = if (sign == 0b0) then 0b1 else 0b0;
-  fmake_D (new_sign, exp, mant)
-}
 
 val      feq_quiet_D : (bits(64), bits (64)) -> (bool, bits(5))
 function feq_quiet_D   (v1,       v2) = {

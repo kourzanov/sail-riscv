@@ -1,0 +1,63 @@
+--- generated_definitions/c/riscv_model_RV64.c	2025-03-10 16:23:23.896654774 +0100
++++ generated_definitions/c/riscv_model_RV64-min.c	2025-03-10 16:21:10.607235927 +0100
+@@ -8,6 +8,10 @@
+ #endif
+ void (*sail_rts_set_coverage_file)(const char *) = NULL;
+ 
++// enum Retired
++enum zRetired { zRETIRE_SUCCESS, zRETIRE_FAIL };
++#include "riscv_ext.h"
++
+ // enum zicondop
+ enum zzzicondop { zRISCV_CZERO_EQZ, zRISCV_CZERO_NEZ };
+ 
+@@ -4478,8 +4482,6 @@
+   rop->variants.zSomezIESATPModez5zK = op;
+ }
+ 
+-// enum Retired
+-enum zRetired { zRETIRE_SUCCESS, zRETIRE_FAIL };
+ 
+ static bool EQUAL(zRetired)(enum zRetired op1, enum zRetired op2) {
+   return op1 == op2;
+@@ -20998,7 +21000,7 @@
+ }
+ 
+ // register mtvec
+-struct zMtvec zmtvec;
++struct zMtvec zmtvec;// __attribute__((visibility("default")));
+ 
+ struct zMtvec zlegalizze_tvec(struct zMtvec, uint64_t);
+ 
+@@ -138959,6 +138961,7 @@
+         struct zast zuz33527;
+         CREATE(zast)(&zuz33527);
+         zext_decode(&zuz33527, zw);
++	decode_insn(zw);
+         {
+           bool zgaz36337;
+           zgaz36337 = get_config_print_instr(UNIT);
+@@ -139013,6 +139016,7 @@
+                             {
+                               sail_string zgaz36338;
+                               CREATE(sail_string)(&zgaz36338);
++			      if (!print_insn(&zgaz36338))
+                               zprint_insn(&zgaz36338, zuz33527);
+                               concat_str(&zgaz36340, ") ", zgaz36338);
+                               KILL(sail_string)(&zgaz36338);
+@@ -139064,6 +139068,7 @@
+         }
+         enum zRetired zgaz36352;
+         {
++	  if (!execute_insn(&zgaz36352))
+           zgaz36352 = zexecute(zuz33527);
+           if (have_exception) {
+ 
+@@ -141757,6 +141762,7 @@
+   KILL(zoptionzIRTLB_EntryzK)(&zgaz31746);
+   KILL(zoptionzIRTLB_EntryzK)(&zgaz31745);
+   zinitializze_registers(UNIT);
++  ext_model_init();
+ }
+ 
+ void model_fini(void)

@@ -9,9 +9,6 @@
 enum clause extension = Ext_Zbb
 function clause extensionEnabled(Ext_Zbb) = true | extensionEnabled(Ext_B)
 
-enum clause extension = Ext_Zbkb
-function clause extensionEnabled(Ext_Zbkb) = true
-
 /* ****************************************************************** */
 union clause ast = RISCV_RORIW : (bits(5), regidx, regidx)
 
