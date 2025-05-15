@@ -352,31 +352,24 @@ csim: c_emulator/riscv_sim_$(ARCH)
 rvfi: c_emulator/riscv_rvfi_$(ARCH)
 
 c_emulator/%.o: generated_definitions/c/%.c generated_definitions/c/%.C generated_definitions/c/%.H Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -c $< -o $@
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -c $< -o $@
 c_emulator/%.os: generated_definitions/c/%.c generated_definitions/c/%.C generated_definitions/c/%.H Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -flto=auto -c $< -o $@
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -flto=auto -c $< -o $@
 c_emulator/%.O: generated_definitions/c/%.c generated_definitions/c/%.C generated_definitions/c/%.H Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC -fPIC -c $< -o $@
-c_emulator/%.O: generated_definitions/c/%.c generated_definitions/c/%.C generated_definitions/c/%.H Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -fPIC -c $< -o $@
-
-c_emulator/%.OS: generated_definitions/c/%.c generated_definitions/c/%.C generated_definitions/c/%.H Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -c $< -o $@
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -fPIC -c $< -o $@
 
 c_emulator/%.o: generated_definitions/c/%.c Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -c $< -o $@
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -c $< -o $@
 c_emulator/%.os: generated_definitions/c/%.c Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -flto=auto -c $< -o $@
-
-c_emulator/%.OS: generated_definitions/c/%.c Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -c $< -o $@
-
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -flto=auto -c $< -o $@
 c_emulator/%.O: generated_definitions/c/%.c Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC -fPIC -c $< -o $@
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -fPIC -c $< -o $@
+
 c_emulator/%.O: $(SAIL_LIB_DIR)/%.c Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC -fPIC -c $< -o $@
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -fPIC -c $< -o $@
+
 c_emulator/%.O: c_emulator/%.c Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC -fPIC -c $< -o $@
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC=1 -fPIC -c $< -o $@
 
 c_emulator/%.so: c_emulator/%.O
 	$(LD) -shared --whole-archive --gc-sections -o $@ $^
@@ -385,22 +378,20 @@ c_emulator/riscv_model_$(ARCH).so: $(patsubst $(SAIL_LIB_DIR)/%.c,c_emulator/%.O
 c_emulator/riscv_model_$(ARCH).so: $(C_SRCS:.c=.O)
 
 c_emulator/riscv_sim_$(ARCH).static: c_emulator/riscv_model_$(ARCH).o $(C_INCS) $(C_SRCS) c_emulator/riscv_sim.c $(SOFTFLOAT_LIBS) $(SAIL_MODULES) Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC $< $(C_SRCS) c_emulator/riscv_sim.c $(SAIL_LIB_DIR)/*.c $(C_LIBS) $(SAIL_MODULES) -o $@ -lz
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -UDYNAMIC $< $(C_SRCS) c_emulator/riscv_sim.c $(SAIL_LIB_DIR)/*.c $(C_LIBS) $(SAIL_MODULES) -o $@ -lz
+
 SAIL_LIBS=$(patsubst %.o,%.so,$(SAIL_MODULES))
 .PRECIOUS: $(SAIL_LIBS)
 c_emulator/riscv_sim_$(ARCH).semidyn: c_emulator/riscv_model_$(ARCH).so $(C_INCS) c_emulator/riscv_sim.c $(SOFTFLOAT_LIBS) $(SAIL_LIBS) Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC $< c_emulator/riscv_sim.c $(C_LIBS) $(SAIL_LIBS) -o $@ -lz
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -UDYNAMIC $< c_emulator/riscv_sim.c $(C_LIBS) $(SAIL_LIBS) -o $@ -lz
 
 c_emulator/riscv_sim_$(ARCH).fulldyn: c_emulator/riscv_model_$(ARCH).so $(C_INCS) c_emulator/riscv_sim.c $(SOFTFLOAT_LIBS) $(SAIL_LIBS) Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC $< c_emulator/riscv_sim.c $(C_LIBS) -o $@ -lz
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DDYNAMIC=1 $< c_emulator/riscv_sim.c $(C_LIBS) -o $@ -lz
+
 SAIL_OBJS=$(patsubst %.o,%.os,$(SAIL_MODULES))
 .PRECIOUS: $(SAIL_OBJS)
 c_emulator/riscv_sim_$(ARCH): c_emulator/riscv_model_$(ARCH).os $(C_INCS) $(C_SRCS) c_emulator/riscv_sim.c $(SOFTFLOAT_LIBS) $(SAIL_OBJS) Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC -flto=auto $< $(C_SRCS) c_emulator/riscv_sim.c $(SAIL_LIB_DIR)/*.c $(C_LIBS) $(SAIL_OBJS) -o $@ -lz
-
-SAIL_OBJS_OS=$(patsubst %.o,%.OS,$(SAIL_MODULES))
-c_emulator/riscv_sim_$(ARCH).no_flto: c_emulator/riscv_model_$(ARCH).OS $(C_INCS) $(C_SRCS) c_emulator/riscv_sim.c $(SOFTFLOAT_LIBS) $(SAIL_OBJS_OS) Makefile
-	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -DNOT_DYNAMIC $< $(C_SRCS) c_emulator/riscv_sim.c $(SAIL_LIB_DIR)/*.c $(C_LIBS) $(SAIL_OBJS_OS) -o $@ -lz
+	$(CC) -g $(C_WARNINGS) $(C_FLAGS) -UDYNAMIC -flto=auto $< $(C_SRCS) c_emulator/riscv_sim.c $(SAIL_LIB_DIR)/*.c $(C_LIBS) $(SAIL_OBJS) -o $@ -lz
 
 # Note: We have to add -c_preserve since the functions might be optimized out otherwise
 rvfi_preserve_fns=-c_preserve rvfi_set_instr_packet \

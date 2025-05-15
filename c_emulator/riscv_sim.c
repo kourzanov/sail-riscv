@@ -27,7 +27,7 @@
 #include "riscv_platform_impl.h"
 #include "riscv_sail.h"
 
-#ifdef NOT_DYNAMIC
+#if !DYNAMIC
 #include "riscv_model_RV64-mext.H"
 #include "riscv_model_RV64-bext.H"
 #include "riscv_model_RV64-kext.H"
@@ -120,7 +120,7 @@ struct cycle_stats{
 #define DEFINE_AST(X) struct X##ast X##ast;
 #define GET_AST(X) X##ast
 
-#ifdef NOT_DYNAMIC
+#if !DYNAMIC
 struct mast mast;
 struct bast bast;
 struct kast kast;
@@ -128,7 +128,7 @@ struct vast vast;
 struct past past;
 #endif
 
-#ifdef DYNAMIC
+#if DYNAMIC
 typedef struct extension_node{
     char ext_char;
     char *lib_path;
@@ -341,7 +341,7 @@ static int ilog2(uint64_t x)
   return -1;
 }
 
-#ifdef NOT_DYNAMIC
+#if !DYNAMIC
 void ext_model_init(void){
   mext_init();
   bext_init();
@@ -410,7 +410,7 @@ bool execute_insn(enum zRetired* zgaz36352) {
 }
 #endif
 
-#ifdef DYNAMIC
+#if DYNAMIC
 static void parse_library_path(const char *path) {
   if (path && *path) {
     library_path = strdup(path);
@@ -589,7 +589,7 @@ static int process_args(int argc, char **argv)
                     "V::"
                     "v::"
                     "l:"
-#ifdef DYNAMIC
+#if DYNAMIC
                     "D:"
 		    "L:"
 #endif
@@ -693,7 +693,7 @@ static int process_args(int argc, char **argv)
     case 'h':
       print_usage(argv[0], 0);
       break;
-#ifdef DYNAMIC
+#if DYNAMIC
     case 'D':
       parse_extensions(optarg);
       break;
@@ -783,7 +783,7 @@ static int process_args(int argc, char **argv)
 #endif
     fprintf(stdout, "Running file %s.\n", argv[optind]);
 
-#ifdef DYNAMIC
+#if DYNAMIC
       load_all_extensions();
 #endif
       return optind;
